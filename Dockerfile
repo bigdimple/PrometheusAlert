@@ -1,6 +1,37 @@
-FROM centos:7
-MAINTAINER jikun.zhang <jikun.zhang>
-ADD example/linux /app
+FROM golang:1.14-alpine3.12 as builder
+
+WORKDIR $GOPATH/src/github.com/feiyu563/PrometheusAlert
+
+RUN apk update && apk upgrade && apk add --no-cache gcc g++ sqlite-libs
+
+ENV GO111MODULE on
+
+ENV GOPROXY https://goproxy.io
+
+COPY . $GOPATH/src/github.com/feiyu563/PrometheusAlert
+
+RUN go mod vendor && go build
+
+# -----------------------------------------------------------------------------
+
+FROM alpine:3.12
+
+LABEL maintainer="jikun.zhang"
+
+RUN apk update && apk upgrade && apk add --no-cache sqlite-libs
+
 WORKDIR /app
-RUN chmod -R 755 /app
-CMD ["/app/PrometheusAlert"]
+
+COPY --from=builder /go/src/github.com/feiyu563/PrometheusAlert/PrometheusAlert .
+
+COPY conf/app-example.conf conf/app.conf
+
+COPY db db
+
+COPY logs logs
+
+COPY static static
+
+COPY views views
+
+ENTRYPOINT [ "/app/PrometheusAlert" ]
